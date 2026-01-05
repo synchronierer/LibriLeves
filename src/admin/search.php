@@ -14,7 +14,7 @@ if ($conn->connect_error) {
 }
 
 // Google Books API Schlüssel
-$apiKey = 'AIzaSyCAaVhRLCH9PdFOiKmDZhkWZ2PmpYgDVmo';
+$apiKey = 'xxx';
 
 // IDs, die recherchiert werden sollen
 $ids = [];
@@ -155,4 +155,5 @@ $conn->close();
 
 echo "</body>
 </html>";
+
 ?>
