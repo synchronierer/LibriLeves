@@ -1,0 +1,223 @@
+/* Allgemeine Stile */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #e0f7fa; /* Helles Cyan */
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+h1, h2 {
+    color: #d32f2f; /* Rotes Hauptthema */
+    text-align: center;
+}
+
+h1 {
+    font-size: 2.5em;
+    margin-top: 20px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    font-size: 2em;
+    margin-top: 30px;
+}
+
+/* Menüleiste */
+.menu {
+    background-color: #ffeb3b; /* Helles Gelb */
+    overflow: hidden;
+    text-align: center;
+    padding: 10px 0;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.menu a {
+    color: #000;
+    text-decoration: none;
+    padding: 14px 20px;
+    display: inline-block;
+    font-size: 1.2em;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.menu a:hover {
+    background-color: #fbc02d; /* Dunkleres Gelb */
+    color: #fff; /* Weiß für den Text beim Hover */
+    border-radius: 5px;
+}
+
+/* Formulare */
+form {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    transition: transform 0.3s;
+}
+
+form:hover {
+    transform: scale(1.02); /* Leichte Vergrößerung beim Hover */
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin: 5px 0 20px;
+    border: 2px solid #d32f2f; /* Rote Umrandung */
+    border-radius: 5px;
+    font-size: 1em;
+    transition: border-color 0.3s;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
+    border-color: #c62828; /* Dunkleres Rot beim Fokus */
+    outline: none; /* Kein Standard-Fokusrahmen */
+}
+
+input[type="submit"] {
+    background-color: #d32f2f; /* Rotes Hauptthema */
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1em;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.3s;
+}
+
+input[type="submit"]:hover {
+    background-color: #b71c1c; /* Dunkleres Rot */
+    transform: translateY(-2px); /* Leichte Hebung beim Hover */
+}
+
+/* Buchergebnisse */
+.book-result {
+    background-color: #fff;
+    border: 2px solid #ffeb3b; /* Helles Gelb */
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px auto;
+    max-width: 600px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex; /* Flexbox für Layout */
+    align-items: center; /* Vertikale Zentrierung */
+}
+
+.book-result img {
+    max-width: 100px;
+    border-radius: 5px;
+    margin-right: 20px; /* Abstand zwischen Bild und Text */
+}
+
+.book-result .details {
+    flex: 1;
+}
+
+/* Fußzeile */
+footer {
+    text-align: center;
+    padding: 10px;
+    background-color: #ffeb3b; /* Helles Gelb */
+    position: fixed;
+    width: 100%;
+    bottom: 0;
+}
+
+/* Spezifische Stile für den Logout-Link, falls gewünscht */
+.menu a[href="logout.php"] {
+    background-color: #c62828; /* Dunkleres Rot für den Logout-Button */
+    color: #fff;
+}
+
+.menu a[href="logout.php"]:hover {
+    background-color: #b71c1c; /* Noch dunkleres Rot beim Hovern */
+}
+
+/* Benutzerergebnisse */
+.user-result {
+    background-color: #fff;
+    border: 2px solid #ffeb3b; /* Helles Gelb */
+    border-radius: 10px;
+    padding: 20px;
+    margin: 10px auto; /* Reduziere den Abstand */
+    max-width: 600px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex; /* Flexbox für Layout */
+    justify-content: space-between; /* Platz zwischen Elementen */
+    align-items: center; /* Vertikale Zentrierung */
+}
+
+/* Modal für die Bearbeitung */
+.modal {
+    display: none; /* Versteckt das Modal */
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgb(0,0,0);
+    background-color: rgba(0,0,0,0.4);
+    padding-top: 60px;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.message-box {
+            display: none; /* Standardmäßig ausgeblendet */
+            background-color: #dff0d8;
+            color: #3c763d;
+            padding: 15px;
+            margin: 20px 0;
+            border: 1px solid #d6e9c6;
+            border-radius: 4px;
+        }
+.button {
+    display: inline-block;
+    padding: 10px 20px;
+    margin: 5px;
+    background-color: #ffeb3b; /* Gelber Hintergrund */
+    color: black; /* Schwarzer Text */
+    text-align: center;
+    border-radius: 5px; /* Abgerundete Ecken */
+    transition: background-color 0.3s; /* Übergangseffekt */
+}
+
+.button:hover {
+    background-color: #fbc02d; /* Etwas dunklerer Gelbton bei Hover */
+}
+
+/* Zentriere die Buttons */
+.button-container {
+    text-align: center; /* Zentriert die Buttons */
+    margin-top: 20px; /* Abstand nach oben */
+}
