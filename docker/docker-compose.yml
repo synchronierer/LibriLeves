@@ -1,1 +1,44 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8765:80"  # Webanwendung auf Port 8765
+    volumes:
+      - /srv/librileves/src:/var/www/html
+    restart: always
+    networks:
+      - app-network
+    depends_on:
+      - db
 
+  db:
+    image: mariadb:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: eckelese
+      MYSQL_DATABASE: leseecke
+      MYSQL_USER: bibadmin
+      MYSQL_PASSWORD: bibadmin
+    volumes:
+      - /srv/librileves/db_data:/var/lib/mysql
+    networks:
+      - app-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - "5678:80"  # phpMyAdmin auf Port 5678
+    environment:
+      PMA_HOST: db
+      PMA_USER: bibadmin
+      PMA_PASSWORD: bibadmin
+    restart: always
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db_data:
