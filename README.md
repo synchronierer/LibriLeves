@@ -1,6 +1,5 @@
 ### LibriLeves – the lightweight library tool
-<img src="src/media/LogoNurGesicht.png" alt="LibriLeves mascot" height="150">
-<img src="src/media/LogoNurTitel.png" alt="LibriLeves" height="150">  
+<img src="src/media/LogoNurGesicht.png" alt="LibriLeves mascot" height="150"><img src="src/media/LogoNurTitel.png" alt="LibriLeves" height="150">  
 
 
 A friendly, open‑source library management system for schools. Catalog books, manage users and loans, and keep your shelf tidy – fast and fun.
