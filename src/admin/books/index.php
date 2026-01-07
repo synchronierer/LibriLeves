@@ -1,17 +1,12 @@
 <?php
-session_start();
-include('../../db.php');
+require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../includes/security.php';
 
-// Überprüfe, ob der Benutzer eingeloggt ist und Admin-Rechte hat
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
-    header("Location: ../login.php");
-    exit();
-}
+start_secure_session();
+require_admin();
 
 include '../../menu.php';
 ?>
-
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -22,11 +17,11 @@ include '../../menu.php';
 </head>
 <body>
     <h1>Bücherverwaltung</h1>
-    
-    <div class="button-container">
+
+    <div class="button-container centered">
         <a href="add_via_isbn.php" class="button">Buch hinzufügen</a>
         <a href="view_books.php" class="button">Bestand pflegen</a>
-		  <a href="search_books.php" class="button">Automatische Nachrecherche</a>
+        <a href="search_books.php" class="button">Automatische Nachrecherche</a>
     </div>
 </body>
 </html>

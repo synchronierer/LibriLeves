@@ -1,15 +1,20 @@
+# docker/docker-compose.yml
 services:
   web:
-    build: .
+    build:
+      context: ..                 # Projekt-Root als Build-Kontext
+      dockerfile: docker/Dockerfile
     ports:
-      - "8765:80"  # Webanwendung auf Port 8765
+      - "8765:80"                 # Webanwendung auf Port 8765
     volumes:
-      - /srv/librileves/src:/var/www/html
+      - ../src:/var/www/html      # bind mount: Quellcode aus Projekt-Root
     restart: always
     networks:
       - app-network
     depends_on:
       - db
+    environment:
+      - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY:-}
 
   db:
     image: mariadb:latest
@@ -20,7 +25,8 @@ services:
       MYSQL_USER: bibadmin
       MYSQL_PASSWORD: bibadmin
     volumes:
-      - /srv/librileves/db_data:/var/lib/mysql
+      - ../db_data:/var/lib/mysql                           # Daten dauerhaft speichern
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql  # Schema-Init beim ersten Start
     networks:
       - app-network
 
@@ -39,6 +45,3 @@ services:
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  db_data:
