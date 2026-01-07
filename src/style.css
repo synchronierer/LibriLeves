@@ -1,391 +1,190 @@
-/* Allgemeine Stile */
-body {
-    font-family: 'Arial', sans-serif;
-    background-color: #e0f7fa; /* Helles Cyan */
-    color: #333;
-    margin: 0;
-    padding: 0;
+/* ================== Design-Variablen (aus Logo) ================== */
+:root{
+  --brand-green: #5CA32D;
+  --brand-green-dark: #3C7F22;
+  --brand-blue: #2CA0CF;
+  --brand-blue-dark: #1F84AD;
+  --brand-yellow: #F6C343;
+
+  --ink: #1F2937;
+  --ink-muted: #6B7C8E;
+  --surface: #FFFFFF;
+  --bg: #F7FBF6;
+  --border: #E5E7EB;
+
+  --error: #D32F2F;
+  --success: #2E7D32;
+  --shadow: 0 2px 10px rgba(0,0,0,.08);
 }
 
-/* Entferne Unterstreichung für alle Links */
-a {
-    text-decoration: none; /* Keine Unterstreichung */
+/* ================== Grundlayout ================== */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body{
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+  margin: 0;
+  color: var(--ink);
+  background: linear-gradient(180deg, #FAFDF9 0%, var(--bg) 220px);
+  padding-top: 160px; /* Platz für großes, fixes Menü */
+}
+a { color: var(--brand-blue-dark); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Überschriften sicher mittig */
+h1, h2, h3{
+  text-align: center !important;
+  color: var(--ink);
+  margin-top: 12px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+h1{
+  font-size: 2.2rem;
+  background: linear-gradient(90deg, var(--brand-green) 0%, var(--brand-blue) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-/* Menüleiste */
-.menu {
-    background-color: #ffeb3b; /* Helles Gelb */
-    overflow: hidden;
-    text-align: center;
-    padding: 10px 0;
-    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
-    position: fixed; /* Fixiere das Menü */
-    top: 0; /* Setze das Menü oben an */
-    left: 0; /* Setze das Menü links an */
-    width: 100%; /* Breite auf 100% setzen */
-    z-index: 1000; /* Stelle sicher, dass das Menü über anderen Inhalten liegt */
+/* ================== Menüleiste (deutlich größer) ================== */
+.menu{
+  position: fixed; inset: 0 0 auto 0; height: 140px; /* ~2x so groß */
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; padding: 0 28px; z-index: 1000; box-shadow: var(--shadow);
 }
 
-.menu a {
-    color: #000;
-    padding: 14px 20px;
-    display: inline-block;
-    font-size: 1.4em;
-    transition: background-color 0.3s, color 0.3s;
+/* Logo + Wortmarke */
+.brand-group{ display:flex; align-items:center; gap:16px; min-width:0; }
+.brand-icon{ display:flex; align-items:center; }
+.brand-logo{ height: 120px; width:auto; display:block; }         /* großes Icon */
+.brand-wordmark{ height: 88px; width:auto; display:block; }      /* große Wortmarke */
+
+.nav-links{ display:flex; gap:12px; align-items:center; }
+.nav-links a{
+  display:inline-block; padding: 14px 18px; border-radius:10px;
+  color:var(--ink); font-weight:700; font-size: 1.6rem; /* deutlich größere Schrift */
+}
+.nav-links a:hover{ background: rgba(44,160,207,0.10); }
+
+/* Responsive Deckelung auf kleineren Screens */
+@media (max-width: 1200px){
+  .menu{ height: 120px; }
+  .brand-logo{ height: 104px; }
+  .brand-wordmark{ height: 72px; }
+  body{ padding-top: 136px; }
+  .nav-links a{ font-size: 1.4rem; }
+}
+@media (max-width: 900px){
+  .brand-wordmark{ display:none; } /* nur Icon lassen */
+  .menu{ height: 104px; }
+  .brand-logo{ height: 92px; }
+  body{ padding-top: 120px; }
+  .nav-links a{ font-size: 1.2rem; padding: 12px 16px; }
 }
 
-.menu a:hover {
-    background-color: #fbc02d; /* Dunkleres Gelb */
-    color: #fff; /* Weiß für den Text beim Hover */
-    border-radius: 5px;
+/* ================== Formulare & Buttons ================== */
+form{
+  max-width: 1000px; margin: 20px auto; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow);
+}
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], select{
+  width: 100%; padding: 10px 12px; margin: 6px 0 16px;
+  border: 1.5px solid var(--border); border-radius: 8px; font-size: 1rem; color: var(--ink); background: var(--surface);
+  transition: border-color .2s, box-shadow .2s;
+}
+input:focus, select:focus{ outline:none; border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(44,160,207,.15); }
+
+input[type="submit"], .button{
+  display:inline-block; background: linear-gradient(90deg, var(--brand-green) 0%, var(--brand-blue) 100%);
+  color:#fff; border:none; padding:10px 16px; font-size:1rem; border-radius:10px; cursor:pointer;
+  transition: transform .05s ease, filter .15s ease;
+}
+input[type="submit"]:hover, .button:hover{ filter: brightness(1.05); }
+input[type="submit"]:active, .button:active{ transform: translateY(1px); }
+
+/* Button-Gruppe zentrieren (books/index.php) */
+.button-container{ display:flex; gap:10px; margin-top:20px; flex-wrap: wrap; }
+.button-container.centered{ justify-content:center; }
+
+/* ================== Delete-Buttons (einheitlich) ================== */
+.delete-button{
+  display:inline-block;
+  background: var(--error); color:#fff; border:none;
+  padding: 10px 14px; border-radius: 10px; cursor: pointer;
+  font-weight: 600; line-height: 1;
+  transition: filter .15s ease, transform .05s ease;
+  text-decoration: none; /* falls als <a> verwendet */
+}
+.delete-button:hover{ filter: brightness(1.05); }
+.delete-button:active{ transform: translateY(1px); }
+.delete-form{ display:inline; margin:0; padding:0; }
+
+/* ================== Tabellen ================== */
+.loansTable{
+  width: 100%; max-width: 1100px; margin: 20px auto;
+  border-collapse: collapse; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+}
+.loansTable th, .loansTable td{ padding: 12px 14px; border-bottom: 1px solid var(--border); text-align:left; }
+.loansTable thead th{ background: linear-gradient(90deg, rgba(92,163,45,0.12), rgba(44,160,207,0.12)); color: var(--ink); }
+.loansTable tr:hover{ background: #FAFCFA; }
+
+/* Sortier-Indikatoren (falls genutzt) */
+.sortable{ cursor: pointer; user-select: none; }
+.sort-indicator{ margin-left:6px; opacity:.6; }
+th.sorted-asc .sort-indicator::after{ content:"▲"; }
+th.sorted-desc .sort-indicator::after{ content:"▼"; }
+
+/* ================== Popups & Meldungen ================== */
+.popup{
+  position: fixed; top: 152px; left: 50%; transform: translateX(-50%);
+  padding: 12px 16px; border-radius: 10px; color: #fff; z-index: 1300; box-shadow: var(--shadow);
+}
+.popup.success{ background: linear-gradient(90deg, #2E7D32, #4CAF50); }
+.popup.error{ background: linear-gradient(90deg, #D32F2F, #EF5350); }
+
+.message-box{
+  display: none; background: #E8F5E9; color: #256029;
+  padding: 12px 16px; border: 1px solid #C8E6C9; border-radius: 10px;
+  max-width: 1000px; margin: 16px auto;
 }
 
-/* Bilder im Menü */
-.menu-logo {
-    height: 70px; /* Höhe des Logos */
-    float: left; /* Logo links ausrichten */
-    margin-left: 30px; /* Abstand vom linken Rand */
+/* ================== Startseite – Ergebnisliste ================== */
+.buchsuche{
+  width: 100%; max-width: 1000px; margin: 20px auto; box-shadow: var(--shadow);
 }
+.buchsuche .book-result{
+  border: 1px solid var(--border); padding: 12px; display: flex; gap: 16px; background: var(--surface);
+}
+.buchsuche .book-result + .book-result{ border-top: none; }
+.buchsuche img.cover-thumb{ width: 90px; height: auto; display:block; }
+.buchsuche .details{ flex: 1; }
 
-/* Bild in der oberen rechten Ecke */
-.top-right-image {
-    position: fixed; /* Fixiere das Bild */
-    top: 120px; /* Abstand von oben */
-    right: 30px; /* Positioniere es rechts */
-    width: 20%; /* Breite des Bildes */
-    height: auto; /* Höhe automatisch anpassen */
-    z-index: 1000; /* Sicherstellen, dass es über anderen Inhalten liegt */
-}
+/* Altes Deko-Bild auf Startseite nicht mehr anzeigen */
+.top-right-image{ display:none !important; }
 
-h1, h2 {
-    color: #d32f2f; /* Rotes Hauptthema */
-    text-align: center;
-}
+/* Autocomplete/Chips (falls genutzt) */
+.chip{ display:inline-flex; align-items:center; gap:8px; background: var(--brand-yellow); color:#1F2A30; border-radius:16px; padding:4px 10px; margin-top:8px; }
+.chip .x{ cursor:pointer; font-weight:700; }
+.auto-list{ background: var(--surface); border: 1px solid var(--border); border-top:none; max-height:240px; overflow-y:auto; box-shadow: var(--shadow); }
+.auto-item{ padding:8px 10px; cursor:pointer; }
+.auto-item:hover, .auto-item.active{ background: rgba(92,163,45,0.12); }
+.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 
-h1 {
-    font-size: 2.5em;
-    margin-top: 20px;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+/* Busy Overlay */
+.busy-overlay{
+  position: fixed; inset: 0; background: rgba(255,255,255,.75);
+  display: none; align-items: center; justify-content: center; z-index: 2000;
 }
-
-h2 {
-    font-size: 2em;
-    margin-top: 30px;
+.busy-box{
+  background: #fff; border: 1px solid var(--border); border-radius: 12px;
+  padding: 18px 22px; box-shadow: var(--shadow); display:flex; align-items:center; gap:12px;
 }
-
-/* Füge zusätzlichen Abstand für den Inhalt hinzu */
-body {
-    padding-top: 70px; /* Abstand für die Höhe des fixierten Menüs */
+.spinner{
+  width: 24px; height: 24px; border:3px solid rgba(44,160,207,.25); border-top-color: var(--brand-blue);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
 }
-
-/* Formulare */
-form {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    text-align: center;
-    transition: transform 0.3s;
-}
-
-form:hover {
-    transform: scale(1.02); /* Leichte Vergrößerung beim Hover */
-}
-
-.return-form {
-    margin: 0; /* Kein Margin */
-    padding: 0; /* Kein Padding */
-    display: inline; /* Damit das Formular in der Zeile bleibt */
-}
-
-.return-form input[type="submit"] {
-    background-color: #d32f2f; /* Rotes Hauptthema */
-    color: #fff; /* Weiße Schrift */
-    border: none; /* Kein Rahmen */
-    padding: 10px; /* Polsterung */
-    font-size: 1em; /* Schriftgröße */
-    border-radius: 5px; /* Abgerundete Ecken */
-    cursor: pointer; /* Hand-Cursor */
-    transition: background-color 0.3s, transform 0.3s; /* Übergangseffekte */
-    box-shadow: none; /* Kein Schatten */
-    outline: none; /* Kein Fokusrahmen */
-    margin: 0; /* Kein Margin */
-}
-
-.delete-form {
-    margin: 0; /* Kein Margin */
-    padding: 0; /* Kein Padding */
-    display: inline; /* Damit das Formular in der Zeile bleibt */
-}
-
-.delete-form input[type="submit"] {
-    background-color: #d32f2f; /* Rotes Hauptthema */
-    color: #fff; /* Weiße Schrift */
-    border: none; /* Kein Rahmen */
-    padding: 10px; /* Polsterung */
-    font-size: 1em; /* Schriftgröße */
-    border-radius: 5px; /* Abgerundete Ecken */
-    cursor: pointer; /* Hand-Cursor */
-    transition: background-color 0.3s, transform 0.3s; /* Übergangseffekte */
-    box-shadow: none; /* Kein Schatten */
-    outline: none; /* Kein Fokusrahmen */
-    margin: 0; /* Kein Margin */
-}
-
-input[type="text"],
-input[type="email"],
-input[type="password"] {
-    width: calc(100% - 22px);
-    padding: 10px;
-    margin: 5px 0 20px;
-    border: 2px solid #d32f2f; /* Rote Umrandung */
-    border-radius: 5px;
-    font-size: 1em;
-    transition: border-color 0.3s;
-}
-
-input[type="text"]:focus,
-input[type="email"]:focus,
-input[type="password"]:focus {
-    border-color: #c62828; /* Dunkleres Rot beim Fokus */
-    outline: none; /* Kein Standard-Fokusrahmen */
-}
-
-input[type="submit"] {
-    background-color: #d32f2f; /* Rotes Hauptthema */
-    color: #fff;
-    border: none;
-    padding: 10px;
-    font-size: 1em;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s, transform 0.3s;
-	box-shadow: none; /* Kein Schatten */
-    outline: none; /* Kein Fokusrahmen */
-	margin: 0; /* Kein Margin */
-}
-
-input[type="submit"]:hover {
-    background-color: #b71c1c; /* Dunkleres Rot */
-    transform: translateY(-2px); /* Leichte Hebung beim Hover */
-}
-
-/* Tabelle für aktive Ausleihen */
-.loansTable {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 20px auto; /* Zentriert die Tabelle */
-    max-width: 1000px; /* Maximale Breite der Tabelle */
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.loansTable th, .loansTable td {
-    border: 1px solid #d32f2f; /* Rote Umrandung */
-    padding: 12px;
-    text-align: left;
-}
-
-.loansTable th {
-    background-color: #ffeb3b; /* Helles Gelb für die Kopfzeile */
-    color: #333;
-}
-
-.loansTable tr:nth-child(even) {
-    background-color: #f2f2f2; /* Heller Hintergrund für gerade Zeilen */
-}
-
-.loansTable tr:hover {
-    background-color: #ffe082; /* Leicht dunklerer Gelbton beim Hover */
-}
-
-/* Popup für Meldungen */
-.popup {
-    position: fixed;
-    top: 200px;
-    left: 12%;
-    transform: translateX(-50%);
-    padding: 15px;
-    color: #fff;
-    display: none;
-    z-index: 1000;
-    border-radius: 5px;
-	background-color: blue;
-}
-
-.popup.error {
-    background-color: red;
-}
-
-.popup.success {
-    background-color: green;
-}
-
-/* Fußzeile */
-footer {
-    text-align: center;
-    padding: 10px;
-    background-color: #ffeb3b; /* Helles Gelb */
-    position: fixed;
-    width: 100%;
-    bottom: 0;
-}
-
-/* Spezifische Stile für den Logout-Link, falls gewünscht */
-.menu a[href="logout.php"] {
-    background-color: #c62828; /* Dunkleres Rot für den Logout-Button */
-    color: #fff;
-}
-
-.menu a[href="logout.php"]:hover {
-    background-color: #b71c1c; /* Noch dunkleres Rot beim Hovern */
-}
-
-/* Benutzerergebnisse */
-.user-result {
-    background-color: #fff;
-    border: 2px solid #ffeb3b; /* Helles Gelb */
-    border-radius: 10px;
-    padding: 20px;
-    margin: 10px auto; /* Reduziere den Abstand */
-    max-width: 600px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    display: flex; /* Flexbox für Layout */
-    justify-content: space-between; /* Platz zwischen Elementen */
-    align-items: center; /* Vertikale Zentrierung */
-}
-
-/* Modal für die Bearbeitung */
-.modal {
-    display: none; /* Versteckt das Modal */
-    position: fixed;
-    z-index: 1;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgb(0,0,0);
-    background-color: rgba(0,0,0,0.4);
-    padding-top: 60px;
-}
-
-.modal-content {
-    background-color: #fefefe;
-    margin: 5% auto;
-    padding: 20px;
-    border: 1px solid #888;
-    width: 80%;
-}
-
-.close {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-}
-
-.close:hover,
-.close:focus {
-    color: black;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-.message-box {
-    display: none; /* Standardmäßig ausgeblendet */
-    background-color: #dff0d8;
-    color: #3c763d;
-    padding: 15px;
-    margin: 20px 0;
-    border: 1px solid #d6e9c6;
-    border-radius: 4px;
-}
-
-.button {
-    display: inline-block;
-    padding: 10px 20px;
-    margin: 5px;
-    background-color: #ffeb3b; /* Gelber Hintergrund */
-    color: black; /* Schwarzer Text */
-    text-align: center;
-    border-radius: 5px; /* Abgerundete Ecken */
-    transition: background-color 0.3s; /* Übergangseffekt */
-}
-
-.button:hover {
-    background-color: #fbc02d; /* Etwas dunklerer Gelbton bei Hover */
-}
-
-/* Zentriere die Buttons */
-.button-container {
-    text-align: center; /* Zentriert die Buttons */
-    margin-top: 20px; /* Abstand nach oben */
-}
-.delete-button {
-    background-color: #d32f2f; /* Rotes Hauptthema */
-    color: #fff; /* Weiße Schrift */
-    border: none; /* Kein Rahmen */
-    padding: 10px 20px; /* Polsterung */
-    font-size: 1em; /* Schriftgröße */
-    border-radius: 5px; /* Abgerundete Ecken */
-    cursor: pointer; /* Hand-Cursor */
-    transition: background-color 0.3s, transform 0.3s; /* Übergangseffekte */
-    box-shadow: none; /* Kein Schatten */
-    outline: none; /* Kein Fokusrahmen */
-    margin: 0; /* Kein Margin */
-}
-
-.delete-button:hover {
-    background-color: #b71c1c; /* Dunkleres Rot beim Hover */
-    transform: translateY(-2px); /* Leichte Hebung beim Hover */
-}
-/* Buchsuche */
-.buchsuche {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 20px auto; /* Zentriert die Buchergebnisse */
-    max-width: 1000px; /* Maximale Breite der Buchergebnisse */
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.buchsuche .book-result {
-    border: 1px solid #d32f2f; /* Rote Umrandung */
-    padding: 12px;
-    display: flex; /* Flexbox für Bild und Details */
-    margin-bottom: 10px; /* Abstand zwischen den Buchergebnissen */
-}
-
-.buchsuche img {
-    max-width: 100px; /* Maximale Breite des Buchcover-Bildes */
-    margin-right: 20px; /* Abstand zwischen Bild und Details */
-}
-
-.buchsuche .details {
-    flex-grow: 1; /* Details nehmen den verfügbaren Platz ein */
-}
-
-.buchsuche .details strong {
-    color: #d32f2f; /* Rote Schrift für die Labels */
-}
-
-.buchsuche .details span {
-    font-weight: bold; /* Fett für den Bestand */
-}
-
-.buchsuche .details span[style*="color:red"] {
-    color: red; /* Rote Farbe für 'ausgeliehen' */
-}
-
-.buchsuche .details span[style*="color:green"] {
-    color: green; /* Grüne Farbe für 'verfügbar' */
-}
-
-.buchsuche tr:nth-child(even) {
-    background-color: #f2f2f2; /* Heller Hintergrund für gerade Buchergebnisse */
-}
-
-.buchsuche tr:hover {
-    background-color: #ffe082; /* Leicht dunklerer Gelbton beim Hover */
-}
+@keyframes spin { to { transform: rotate(360deg); } }
+.busy-text{ color: var(--ink); font-weight: 600; }

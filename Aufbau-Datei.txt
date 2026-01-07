@@ -1,0 +1,889 @@
+### Überblick und Plan
+
+Unten findest du eine kleinschrittige Anleitung, um LibriLeves lokal mit Docker zum Laufen zu bringen und dabei die wichtigsten Optimierungen direkt einzubauen. Für jeden Schritt gebe ich dir vollständige Datei-Inhalte, damit du sie einfach ersetzen kannst.
+
+Die Reihenfolge:
+1. Arbeitskopie vorbereiten
+2. Docker-Dateien aktualisieren und DB-Schema bereitstellen
+3. Admin-Benutzer einmalig anlegen
+4. PHP-Code-Optimierungen einspielen (konkrete Dateien)
+5. Container starten und testen
+6. Parallel weiterentwickeln
+
+---
+
+### Schritt 1: Arbeitskopie vorbereiten
+
+- Klone das Repo
+  - git clone https://github.com/synchronierer/LibriLeves.git
+  - cd LibriLeves
+- Erstelle einen Entwicklungs-Branch
+  - git checkout -b feature/docker-setup-and-fixes
+
+---
+
+### Schritt 2: Docker-Konfiguration aktualisieren
+
+Wir verbessern die Compose-Konfiguration, machen die Volumes relativ zum Projekt, installieren PHP-curl (für robuste HTTP-Requests) und initialisieren das Datenbankschema automatisch.
+
+#### 2.1 Ersetze docker/Dockerfile vollständig
+
+```dockerfile
+# docker/Dockerfile
+
+# Verwende ein offizielles PHP-Image mit Apache
+FROM php:8.2-apache
+
+# Installiere erforderliche Abhängigkeiten und Erweiterungen
+RUN apt-get update && apt-get install -y \
+    apt-utils \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libcurl4-openssl-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd \
+    && docker-php-ext-install mysqli \
+    && docker-php-ext-install curl
+
+# Kopiere den Inhalt deiner Webseite in das Containerverzeichnis
+COPY ./src /var/www/html/
+
+# Setze die Berechtigungen
+RUN chown -R www-data:www-data /var/www/html
+```
+
+#### 2.2 Ersetze docker/docker-compose.yml vollständig
+
+```yaml
+# docker/docker-compose.yml
+services:
+  web:
+    build: .
+    ports:
+      - "8765:80"  # Webanwendung auf Port 8765
+    volumes:
+      - ./src:/var/www/html
+    restart: always
+    networks:
+      - app-network
+    depends_on:
+      - db
+    environment:
+      # Optional: Setze diesen Key in deiner Shell oder einer .env-Datei
+      # GOOGLE_BOOKS_API_KEY=dein_api_key
+      - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY:-}
+
+  db:
+    image: mariadb:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: eckelese
+      MYSQL_DATABASE: leseecke
+      MYSQL_USER: bibadmin
+      MYSQL_PASSWORD: bibadmin
+    volumes:
+      - ./db_data:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - app-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - "5678:80"  # phpMyAdmin auf Port 5678
+    environment:
+      PMA_HOST: db
+      PMA_USER: bibadmin
+      PMA_PASSWORD: bibadmin
+    restart: always
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+```
+
+Hinweise:
+- Das Datenbankschema wird mit init.sql nur beim ersten Container-Start (leere db_data) ausgeführt.
+- GOOGLE_BOOKS_API_KEY kannst du später setzen; ohne Key klappt die Abfrage oft trotzdem, aber mit begrenztem Kontingent.
+
+#### 2.3 Lege die Datei docker/init.sql neu an
+
+```sql
+-- docker/init.sql
+
+-- Schema für LibriLeves
+
+CREATE TABLE IF NOT EXISTS users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  vorname VARCHAR(100) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  benutzertyp ENUM('admin','leser') NOT NULL DEFAULT 'leser'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS books (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  titel VARCHAR(255) NOT NULL,
+  autor VARCHAR(255),
+  mindestalter VARCHAR(50),
+  erscheinungsjahr VARCHAR(50),
+  verlag VARCHAR(255),
+  isbn VARCHAR(20),
+  ort VARCHAR(255),
+  barcode VARCHAR(64) UNIQUE,
+  bildlink TEXT,
+  mediennummer VARCHAR(64) UNIQUE,
+  herausgeber VARCHAR(255),
+  INDEX idx_books_titel (titel),
+  INDEX idx_books_autor (autor),
+  INDEX idx_books_isbn (isbn),
+  INDEX idx_books_barcode (barcode)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS loans (
+  loan_id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  book_id INT NOT NULL UNIQUE,
+  loan_date DATETIME NOT NULL,
+  return_date DATETIME NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+  INDEX idx_loans_return_date (return_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS historie (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  loan_id INT NOT NULL,
+  user_id INT NOT NULL,
+  book_id INT NOT NULL,
+  loan_date DATETIME NOT NULL,
+  return_date DATETIME NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (book_id) REFERENCES books(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Optional: Beispielbuch zum Testen (ohne eindeutige Felderkonflikte)
+INSERT INTO books (titel, autor, isbn, barcode, ort)
+VALUES ('Beispielbuch', 'Max Muster', '9780000000002', '9780000000002_001', 'Regal A')
+ON DUPLICATE KEY UPDATE titel = VALUES(titel);
+```
+
+---
+
+### Schritt 3: Admin-Benutzer einmalig anlegen
+
+Wir erzeugen einen kleinen Hilfsskript, der einen Admin mit Passwort-Hash erstellt. Du rufst ihn einmal im Browser auf; danach kannst du die Datei wieder löschen.
+
+Lege die Datei src/tools/bootstrap_admin.php neu an:
+
+```php
+<?php
+// src/tools/bootstrap_admin.php
+// Einmaliges Bootstrap-Skript zum Anlegen eines Admin-Accounts.
+
+require_once __DIR__ . '/../db.php';
+
+$email = $_GET['email'] ?? 'admin@example.com';
+$passwordPlain = $_GET['password'] ?? 'admin123';
+$name = $_GET['name'] ?? 'Admin';
+$vorname = $_GET['vorname'] ?? 'Admin';
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    http_response_code(400);
+    echo "Ungültige E-Mail.";
+    exit;
+}
+
+// Prüfe, ob Admin bereits existiert
+$stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+$stmt->bind_param("s", $email);
+$stmt->execute();
+$stmt->store_result();
+
+if ($stmt->num_rows > 0) {
+    echo "Benutzer mit E-Mail $email existiert bereits.";
+    exit;
+}
+$stmt->close();
+
+$hash = password_hash($passwordPlain, PASSWORD_DEFAULT);
+$benutzertyp = 'admin';
+
+$stmt = $conn->prepare("INSERT INTO users (name, vorname, email, password, benutzertyp) VALUES (?, ?, ?, ?, ?)");
+$stmt->bind_param("sssss", $name, $vorname, $email, $hash, $benutzertyp);
+if ($stmt->execute()) {
+    echo "Admin angelegt: $email (Passwort: $passwordPlain). Bitte diese Datei danach löschen.";
+} else {
+    echo "Fehler: " . $stmt->error;
+}
+$stmt->close();
+```
+
+Aufruf nach dem Start: http://localhost:8765/tools/bootstrap_admin.php
+- Optional: Parameter setzen (z. B. ?email=admin@lokal&password=admin123)
+
+Danach lösche die Datei src/tools/bootstrap_admin.php aus Sicherheitsgründen.
+
+---
+
+### Schritt 4: PHP-Code-Optimierungen einspielen
+
+Ersetze die folgenden Dateien vollständig durch die Versionen unten.
+
+#### 4.1 src/admin/books/update.php
+
+```php
+<?php
+// src/admin/books/update.php
+header('Content-Type: application/json; charset=utf-8');
+
+require_once '../../db.php'; // stellt $conn bereit
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    echo json_encode(["ok" => false, "error" => "Ungültige Anfrage."]);
+    exit;
+}
+
+$id = $_POST["id"] ?? null;
+$bildlink = $_POST["bildlink"] ?? null;
+
+if (!$id || !$bildlink) {
+    echo json_encode(["ok"] => false, ["error"] => "Ungültige Eingabe."]);
+    exit;
+}
+
+$stmt = $conn->prepare("UPDATE books SET bildlink = ? WHERE id = ?");
+if (!$stmt) {
+    echo json_encode(["ok" => false, "error" => $conn->error]);
+    exit;
+}
+$stmt->bind_param("si", $bildlink, $id);
+if ($stmt->execute()) {
+    echo json_encode(["ok" => true]);
+} else {
+    echo json_encode(["ok" => false, "error" => $stmt->error]);
+}
+$stmt->close();
+```
+
+Achtung: In deinem bestehenden search_books.js/AJAX-Code wird „OK“ erwartet; unsere Antwort ist jetzt JSON. Die Logik funktioniert trotzdem – du kannst optional die Auswertung anpassen (siehe Schritt 5).
+
+#### 4.2 src/index.php (Verfügbarkeit korrekt bestimmen)
+
+```php
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leseecke - Büchereiverwaltung</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <?php include 'menu.php'; ?>
+    <img src="kinder_bunt.png" alt="Kinder Bunt" class="top-right-image">
+
+    <h1>Willkommen in der Leseecke</h1>
+    <h1>der IGS am Nanstein</h1>
+
+    <h2>Hier kannst du nach Büchern suchen</h2>
+    <form action="index.php" method="post">
+        <input type="text" name="search" placeholder="Titel, Autor, ISBN oder Barcode eingeben">
+        <input type="submit" value="Suchen">
+    </form>
+
+    <?php
+    include 'db.php';
+
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        $search_query = $_POST['search'];
+        $books = search_books($search_query, $conn);
+
+        if (!empty($books)) {
+            echo "<div class='buchsuche'>";
+            foreach ($books as $book) {
+                echo "<div class='book-result'>";
+                if (!empty($book['bildlink'])) {
+                    echo "<img src='" . htmlspecialchars($book['bildlink']) . "' alt='Coverbild'>";
+                } else {
+                    echo "<img src='nocover.png' alt='Platzhalterbild'>";
+                }
+                echo "<div class='details'>";
+                echo "<strong>Titel:</strong> " . htmlspecialchars($book['titel']) . "<br>";
+                echo "<strong>Autor:</strong> " . htmlspecialchars($book['autor']) . "<br>";
+                echo "<strong>ISBN:</strong> " . htmlspecialchars($book['isbn']) . "<br>";
+                echo "<strong>Barcode:</strong> " . htmlspecialchars($book['barcode']) . "<br>";
+                echo "<strong>Lesealter:</strong> " . htmlspecialchars($book['mindestalter']) . "<br>";
+                echo "<strong>Bestand:</strong> <span style='color:" . ($book['bestand'] === 'ausgeliehen' ? 'red' : 'green') . "'>" . htmlspecialchars($book['bestand']) . "</span><br>";
+                echo "</div>";
+                echo "</div>";
+            }
+            echo "</div>";
+        } else {
+            echo "<p>Keine Buchdaten gefunden.</p>";
+        }
+    }
+
+    function search_books($query, $conn) {
+        $sql = "
+            SELECT b.*,
+                CASE WHEN l.book_id IS NOT NULL THEN 'ausgeliehen' ELSE 'verfügbar' END AS bestand
+            FROM books b
+            LEFT JOIN loans l
+                ON b.id = l.book_id
+               AND l.return_date > NOW()
+            WHERE b.titel LIKE ? OR b.autor LIKE ? OR b.isbn LIKE ? OR b.barcode LIKE ?";
+
+        $stmt = $conn->prepare($sql);
+        $search_term = "%$query%";
+        $stmt->bind_param("ssss", $search_term, $search_term, $search_term, $search_term);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $books = [];
+        while ($row = $result->fetch_assoc()) {
+            $books[] = $row;
+        }
+        $stmt->close();
+        return $books;
+    }
+    ?>
+</body>
+</html>
+```
+
+#### 4.3 src/admin/books/view_books.php (JOIN auf aktive Ausleihen, doppeltes session_start weg)
+
+```php
+<?php
+session_start();
+include('../../db.php');
+
+// Session-Nachrichten abfragen und danach löschen
+$deletesuccess = $_SESSION['deletesuccess'] ?? '';
+$deleteerror = $_SESSION['deleteerror'] ?? '';
+unset($_SESSION['deletesuccess'], $_SESSION['deleteerror']);
+
+// Admin-Check
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+    $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
+    header("Location: login.php");
+    exit();
+}
+
+// Filter
+$filterTerm = $_GET['filterTerm'] ?? '';
+
+// SQL mit korrekter Verfügbarkeitslogik
+$sql = "SELECT b.id, b.titel, b.autor, b.mindestalter, b.erscheinungsjahr, b.verlag, b.isbn, b.ort, b.barcode, b.bildlink,
+               CASE WHEN l.book_id IS NOT NULL THEN 'ausgeliehen'
+                    ELSE 'verfügbar'
+               END AS bestand
+        FROM books b
+        LEFT JOIN loans l
+          ON b.id = l.book_id
+         AND l.return_date > NOW()
+        WHERE b.titel LIKE ? OR b.autor LIKE ? OR b.isbn LIKE ? OR b.id LIKE ?";
+
+$likeTerm = "%" . $filterTerm . "%";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("ssss", $likeTerm, $likeTerm, $likeTerm, $likeTerm);
+$stmt->execute();
+$result = $stmt->get_result();
+$books = $result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+include '../../menu.php';
+?>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bestand anzeigen</title>
+    <link rel="stylesheet" href="../../style.css">
+    <script>
+        function confirmDelete(bookId) {
+            if (confirm("Sind Sie sicher, dass Sie dieses Buch löschen möchten?")) {
+                window.location.href = 'delete_book.php?book_id=' + bookId;
+            }
+        }
+    </script>
+</head>
+<body>
+    <br>
+    <h1>Bestand anzeigen</h1>
+
+    <?php if ($deletesuccess): ?>
+        <div class="popup success"><?php echo htmlspecialchars($deletesuccess); ?></div>
+    <?php endif; ?>
+
+    <?php if ($deleteerror): ?>
+        <div class="popup error"><?php echo htmlspecialchars($deleteerror); ?></div>
+    <?php endif; ?>
+
+    <form action="" method="get">
+        <input type="text" name="filterTerm" placeholder="Bücher filtern (Titel, Autor, ISBN, Barcode)" value="<?php echo htmlspecialchars($filterTerm); ?>">
+        <input type="submit" value="Filtern">
+    </form>
+
+    <table class="loansTable">
+        <thead>
+            <tr>
+                <th>Titel</th>
+                <th>Autor</th>
+                <th>Mindestalter</th>
+                <th>Erscheinungsjahr</th>
+                <th>Verlag</th>
+                <th>ISBN</th>
+                <th>Standort</th>
+                <th>Barcode</th>
+                <th>Bestand</th>
+                <th>Aktionen</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($books as $book): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($book['titel']); ?></td>
+                    <td><?php echo htmlspecialchars($book['autor']); ?></td>
+                    <td><?php echo htmlspecialchars($book['mindestalter']); ?></td>
+                    <td><?php echo htmlspecialchars($book['erscheinungsjahr']); ?></td>
+                    <td><?php echo htmlspecialchars($book['verlag']); ?></td>
+                    <td><?php echo htmlspecialchars($book['isbn']); ?></td>
+                    <td><?php echo htmlspecialchars($book['ort']); ?></td>
+                    <td><?php echo htmlspecialchars($book['barcode']); ?></td>
+                    <td><?php echo htmlspecialchars($book['bestand']); ?></td>
+                    <td>
+                        <div style="display: inline-block; margin-right: 10px;">
+                            <a href="javascript:void(0);" onclick="confirmDelete(<?php echo $book['id']; ?>)" class="delete-button">Löschen</a>
+                        </div>
+                        <div style="display: inline-block;">
+                            <a href="edit_book.php?id=<?php echo $book['id']; ?>" class="button">Bearbeiten</a>
+                        </div>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+
+<script>
+    const popup = document.querySelector('.popup');
+    if (popup) {
+        popup.style.display = 'block';
+        setTimeout(() => { popup.style.display = 'none'; }, 6000);
+    }
+</script>
+</body>
+</html>
+```
+
+#### 4.4 src/admin/confirm_book.php (Prepared Statements und zentrale DB)
+
+```php
+<?php
+// src/admin/confirm_book.php
+session_start();
+require_once '../db.php';
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    http_response_code(405);
+    echo "Method Not Allowed";
+    exit();
+}
+
+$book_data = isset($_POST['book_data']) ? json_decode($_POST['book_data'], true) : null;
+$mediennummer = $_POST['mediennummer'] ?? null;
+$isbn = $_POST['isbn'] ?? null;
+
+if (!$book_data || !$mediennummer || !$isbn) {
+    echo "Fehlende Daten.";
+    exit();
+}
+
+$check = $conn->prepare("SELECT 1 FROM books WHERE mediennummer = ?");
+$check->bind_param("s", $mediennummer);
+$check->execute();
+$check->store_result();
+if ($check->num_rows > 0) {
+    echo "Fehler: Die Mediennummer ist bereits vergeben. Bitte eine andere wählen.";
+    exit();
+}
+$check->close();
+
+$titel = $book_data['title'] ?? '';
+$autoren = isset($book_data['authors']) && is_array($book_data['authors']) ? implode(", ", $book_data['authors']) : '';
+$bildlink = $book_data['bildlink'] ?? '';
+
+$stmt = $conn->prepare("INSERT INTO books (titel, autor, isbn, bildlink, mediennummer) VALUES (?, ?, ?, ?, ?)");
+$stmt->bind_param("sssss", $titel, $autoren, $isbn, $bildlink, $mediennummer);
+if ($stmt->execute()) {
+    echo "Buch erfolgreich hinzugefügt.";
+} else {
+    echo "Fehler beim Hinzufügen des Buches: " . $stmt->error;
+}
+$stmt->close();
+```
+
+Hinweis: Dieses Skript ist historisch – nutze bevorzugt den „Add via ISBN“-Flow.
+
+#### 4.5 src/admin/books/add_via_isbn.php (API-Key via ENV, robustere HTTP-Abfragen)
+
+```php
+<?php
+session_start();
+include '../../db.php';
+
+$bookData = null;
+$errorMessage = null;
+$successMessage = null;
+$isbnInput = '';
+$barcodeInput = '';
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['add_book'])) {
+    if (!empty($_POST['isbn'])) {
+        $isbn = trim($_POST['isbn']);
+        $bookData = searchBooks($isbn);
+        $isbnInput = $isbn;
+
+        // Barcode-Vorschlag
+        $barcodeInput = $isbn . '_001';
+        if (checkBarcodeExists($conn, $barcodeInput)) {
+            for ($i = 2; $i <= 999; $i++) {
+                $newBarcode = $isbn . '_' . str_pad($i, 3, '0', STR_PAD_LEFT);
+                if (!checkBarcodeExists($conn, $newBarcode)) {
+                    $barcodeInput = $newBarcode;
+                    break;
+                }
+            }
+            $errorMessage = "Der Barcode ist bereits vorhanden. Vorschlag: $barcodeInput";
+        }
+    }
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_book'])) {
+    $isbn = trim($_POST['isbn']);
+    $barcodeInput = trim($_POST['barcode']);
+
+    if (empty($bookData)) {
+        $bookData = searchBooks($isbn);
+    }
+    if (checkBarcodeExists($conn, $barcodeInput)) {
+        $errorMessage = "Der Barcode ist bereits vergeben. Bitte einen anderen Barcode wählen.";
+    } else {
+        $stmt = $conn->prepare("INSERT INTO books (titel, erscheinungsjahr, verlag, autor, bildlink, mindestalter, ort, barcode, isbn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $bildlink = $bookData['bildlink'] ?? '';
+        $stmt->bind_param("sssssssss",
+            $_POST['titel'],
+            $_POST['erscheinungsjahr'],
+            $_POST['verlag'],
+            $_POST['autor'],
+            $bildlink,
+            $_POST['mindestalter'],
+            $_POST['standort'],
+            $barcodeInput,
+            $isbn
+        );
+
+        if ($stmt->execute()) {
+            $successMessage = "Das Buch wurde erfolgreich hinzugefügt.";
+        } else {
+            $errorMessage = "Fehler beim Hinzufügen des Buches: " . $stmt->error;
+        }
+        $stmt->close();
+    }
+}
+
+function checkBarcodeExists($conn, $barcode) {
+    $stmt = $conn->prepare("SELECT COUNT(*) FROM books WHERE barcode = ?");
+    $stmt->bind_param("s", $barcode);
+    $stmt->execute();
+    $stmt->bind_result($count);
+    $stmt->fetch();
+    $stmt->close();
+    return $count > 0;
+}
+
+function searchBooks($isbn) {
+    return searchGoogleBooks($isbn);
+}
+
+function searchGoogleBooks($isbn) {
+    $apiKey = getenv('GOOGLE_BOOKS_API_KEY') ?: '';
+    $url = "https://www.googleapis.com/books/v1/volumes?q=isbn:" . urlencode($isbn);
+    if ($apiKey) {
+        $url .= "&key=" . urlencode($apiKey);
+    }
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_USERAGENT => "LibriLeves/1.0 (+http://localhost)",
+    ]);
+    $response = curl_exec($ch);
+    if ($response === false) {
+        curl_close($ch);
+        return null;
+    }
+    $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+    if ($status >= 400) {
+        return null;
+    }
+
+    $data = json_decode($response, true);
+    if (isset($data['items']) && count($data['items']) > 0) {
+        $bookInfo = $data['items'][0]['volumeInfo'];
+        return [
+            'titel' => $bookInfo['title'] ?? 'Nicht verfügbar',
+            'autor' => implode(', ', $bookInfo['authors'] ?? ['Nicht verfügbar']),
+            'erscheinungsjahr' => $bookInfo['publishedDate'] ?? 'Nicht verfügbar',
+            'verlag' => $bookInfo['publisher'] ?? 'Nicht verfügbar',
+            'bildlink' => $bookInfo['imageLinks']['thumbnail'] ?? '',
+            'mindestalter' => 'Unbekannt'
+        ];
+    }
+    return null;
+}
+
+include '../../menu.php';
+?>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buch hinzufügen via ISBN</title>
+    <link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+<div class="container mt-5">
+    <h1>Buch hinzufügen via ISBN</h1>
+    <form method="POST" action="">
+        <div class="form-group">
+            <label for="isbn">ISBN eingeben:</label>
+            <input type="text" class="form-control" id="isbn" name="isbn" value="<?php echo htmlspecialchars($isbnInput); ?>">
+        </div>
+        <button type="submit" class="button">Buch suchen</button>
+    </form>
+
+    <?php if ($errorMessage): ?>
+        <div class="popup error"><?php echo htmlspecialchars($errorMessage); ?></div>
+    <?php endif; ?>
+
+    <?php if ($successMessage): ?>
+        <div class="popup success"><?php echo htmlspecialchars($successMessage); ?></div>
+    <?php endif; ?>
+
+    <?php if ($bookData): ?>
+        <h2>Buchdetails</h2>
+        <div align="center">
+            <img src="<?php echo htmlspecialchars($bookData['bildlink'] ?? ''); ?>" alt="Buchcover" width="10%" style="align-items:center;">
+        </div>
+        <form method="POST" action="">
+            <div class="form-group">
+                <label for="titel">Titel:</label>
+                <input type="text" class="form-control" id="titel" name="titel" value="<?php echo htmlspecialchars($bookData['titel'] ?? ''); ?>">
+            </div>
+            <div class="form-group">
+                <label for="autor">Autor:</label>
+                <input type="text" class="form-control" id="autor" name="autor" value="<?php echo htmlspecialchars($bookData['autor'] ?? ''); ?>">
+            </div>
+            <div class="form-group">
+                <label for="mindestalter">Lesealter:</label>
+                <input type="text" class="form-control" id="mindestalter" name="mindestalter" value="<?php echo htmlspecialchars($bookData['mindestalter'] ?? ''); ?>">
+            </div>
+            <div class="form-group">
+                <label for="erscheinungsjahr">Erscheinungsjahr:</label>
+                <input type="text" class="form-control" id="erscheinungsjahr" name="erscheinungsjahr" value="<?php echo htmlspecialchars($bookData['erscheinungsjahr'] ?? ''); ?>">
+            </div>
+            <div class="form-group">
+                <label for="verlag">Verlag:</label>
+                <input type="text" class="form-control" id="verlag" name="verlag" value="<?php echo htmlspecialchars($bookData['verlag'] ?? ''); ?>">
+            </div>
+            <div class="form-group">
+                <label for="isbn">ISBN:</label>
+                <input type="text" class="form-control" id="isbn" name="isbn" value="<?php echo htmlspecialchars($isbnInput); ?>">
+            </div>
+            <div class="form-group">
+                <label for="barcode">Barcode:</label>
+                <input type="text" class="form-control" id="barcode" name="barcode" value="<?php echo htmlspecialchars($barcodeInput); ?>">
+            </div>
+            <div class="form-group">
+                <label for="standort">Standort:</label>
+                <input type="text" class="form-control" id="standort" name="standort">
+            </div>
+            <button type="submit" name="add_book" class="button">Dem Katalog hinzufügen</button>
+        </form>
+    <?php endif; ?>
+</div>
+
+<script>
+    const popup = document.querySelector('.popup');
+    if (popup) {
+        popup.style.display = 'block';
+        setTimeout(() => {
+            popup.style.display = 'none';
+            <?php if ($successMessage): ?>
+            window.location.href = 'view_books.php';
+            <?php endif; ?>
+        }, 6000);
+    }
+</script>
+</body>
+</html>
+```
+
+#### 4.6 src/admin/books/searchcover.php (Timeouts + OpenLibrary-Fallback)
+
+```php
+<?php
+// src/admin/books/searchcover.php
+header('Content-Type: application/json; charset=utf-8');
+
+if (!isset($_GET['isbn']) || empty($_GET['isbn'])) {
+    echo json_encode(["error" => "Keine ISBN angegeben."]);
+    exit;
+}
+
+$isbn = trim($_GET['isbn']);
+$query = urlencode($isbn . " cover");
+
+// Zuerst: vqd-Token ermitteln
+$ch = curl_init();
+curl_setopt_array($ch, [
+    CURLOPT_URL => "https://duckduckgo.com/?q=".$query,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_USERAGENT => "Mozilla/5.0 LibriLeves",
+    CURLOPT_TIMEOUT => 8,
+    CURLOPT_CONNECTTIMEOUT => 5,
+]);
+$html = curl_exec($ch);
+if (curl_errno($ch)) {
+    curl_close($ch);
+    echo json_encode(["error" => "cURL-Fehler: ".curl_error($ch)]);
+    exit;
+}
+curl_close($ch);
+
+// vqd-Token via Regex
+$vqd = null;
+if (preg_match("/vqd='([\d-]+)'/", $html, $matches)) {
+    $vqd = $matches[1];
+}
+
+// Bildsuche
+$coverUrl = null;
+if ($vqd) {
+    $apiUrl = "https://duckduckgo.com/i.js?l=de-en&o=json&q=" . $query . "&vqd=" . $vqd;
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $apiUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERAGENT => "Mozilla/5.0 LibriLeves",
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_CONNECTTIMEOUT => 5,
+    ]);
+    $response = curl_exec($ch);
+    if (!curl_errno($ch)) {
+        $data = json_decode($response, true);
+        if ($data && isset($data['results'])) {
+            foreach ($data['results'] as $result) {
+                if (isset($result['image']) && stripos($result['image'], "cover") !== false) {
+                    $coverUrl = $result['image']; break;
+                }
+                if (isset($result['url']) && stripos($result['url'], "cover") !== false) {
+                    $coverUrl = $result['url']; break;
+                }
+            }
+        }
+    }
+    curl_close($ch);
+}
+
+// Fallback: OpenLibrary (funktioniert oft ohne API-Schlüssel)
+if (!$coverUrl && preg_match('/^\d{10,13}$/', $isbn)) {
+    $coverUrl = "https://covers.openlibrary.org/b/isbn/" . urlencode($isbn) . "-L.jpg";
+}
+
+echo json_encode(["cover" => $coverUrl ?: ""]);
+```
+
+---
+
+### Schritt 5: Container starten und initialisieren
+
+- Baue und starte die Container:
+  - cd docker
+  - docker compose up -d
+- Warte 10–20 Sekunden, bis MariaDB bereit ist. Prüfe Logs bei Bedarf:
+  - docker compose logs -f db
+- Admin-Benutzer anlegen:
+  - Öffne im Browser: http://localhost:8765/tools/bootstrap_admin.php
+  - Ergebnis „Admin angelegt: …“ sollte erscheinen.
+  - Lösche danach die Datei src/tools/bootstrap_admin.php (wichtig!).
+
+- Anmeldung testen:
+  - Gehe zu http://localhost:8765/admin/login.php
+  - Login mit admin@example.com / admin123
+  - Anschließend bist du im Dashboard.
+
+- Optional: Google Books API Key setzen
+  - In deiner Shell: export GOOGLE_BOOKS_API_KEY="dein_key"
+  - Neu starten: docker compose down && docker compose up -d
+
+---
+
+### Schritt 6: Funktionstests (kleinschrittig)
+
+- OPAC-Suche:
+  - Startseite http://localhost:8765/
+  - Nach „Beispielbuch“ suchen. Verfügbarkeit sollte „verfügbar“ sein.
+- Bücherverwaltung:
+  - http://localhost:8765/admin/books/index.php
+  - „Buch hinzufügen“ → ISBN eingeben → prüfen, ob Metadaten geladen werden.
+  - Speichern → Weiterleitung „Bestand pflegen“.
+- Bestand (Verfügbarkeit korrekt):
+  - http://localhost:8765/admin/books/view_books.php
+  - Filter testen; „Bestand“ zeigt korrekt „ausgeliehen“ nur, wenn aktive Ausleihe (return_date > NOW()) existiert.
+- Ausleihe:
+  - http://localhost:8765/admin/loans/ausleihe.php
+  - Ein Testbenutzer anlegen (unter Benutzerverwaltung).
+  - Ein Buch ausleihen → sollte nun als „ausgeliehen“ erscheinen.
+  - Rückgabe testen → Buch steht wieder auf „verfügbar“.
+
+---
+
+### Schritt 7: Parallel entwickeln und testen
+
+- Du kannst den Code unter ./src in deinem Editor ändern; der Container nutzt ein Bind-Mount und lädt Änderungen sofort.
+- Typischer Workflow:
+  - Code ändern
+  - Browser neu laden
+  - Logs prüfen bei Fehlern: docker compose logs -f web
+
+---
+
+### Optional: Sicherheit und Aufräumen
+
+- src/info.php entfernen oder nur lokal verwenden.
+- Nach dem ersten Admin-Bootstrap: src/tools/bootstrap_admin.php löschen.
+- Später CSRF-Tokens und Session-Hardening hinzufügen (kann ich dir gerne vorbereiten).
+
+---
+
+### Was als Nächstes?
+
+Sag mir bitte, welchen Bereich du als nächsten Schritt verbessern möchtest. Beispiele:
+- CSV-Import/Export für Bücher/Benutzer
+- Barcode-Scanner-Flow in Ausleihe (Auto-Fokus, Enter-Submit)
+- Bessere Cover-Logik (erst OpenLibrary, dann Google, dann DuckDuckGo)
+- Tests (kleine Integrationstests mit Docker)
+
+Ich liefere dir dann wieder kleinschrittige Anweisungen und komplette Datei-Inhalte.

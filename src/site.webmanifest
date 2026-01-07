@@ -1,0 +1,12 @@
+{
+  "name": "LibriLeves",
+  "short_name": "LibriLeves",
+  "description": "The lightweight library tool",
+  "icons": [
+    { "src": "/favicon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "theme_color": "#5CA32D",
+  "background_color": "#F7FBF6",
+  "display": "standalone"
+}
