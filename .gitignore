@@ -1,0 +1,22 @@
+# OS/Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# PHP/Cache/Logs
+*.log
+vendor/            # falls später Composer genutzt wird
+
+# Docker/Compose
+db_data/           # MariaDB-Daten (lokal)
+docker/.env        # Compose-Umgebungsvariablen (API-Keys etc.)
+
+# App-spezifisch
+src/media/covers/  # heruntergeladene Cover-Dateien (werden zur Laufzeit erzeugt)
+src/info.php       # phpinfo (nur lokal nützlich)
+
+# Upload-/Temp-Ordner (falls später vorhanden)
+tmp/
+cache/
+uploads/
