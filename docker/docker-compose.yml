@@ -15,7 +15,7 @@ services:
       - db
     environment:
       - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY:-}
-
+      - LOAN_DEFAULT_WEEKS=${LOAN_DEFAULT_WEEKS:-4}
   db:
     image: mariadb:latest
     restart: always
