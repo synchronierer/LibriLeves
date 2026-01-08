@@ -58,7 +58,7 @@ Steps:
 
 ```bash
 # 1) Clone
-git clone https://github.com/your-user/LibriLeves.git
+git clone https://github.com/synchronierer/LibriLeves.git
 cd LibriLeves/docker
 
 # 2) Optional: set env (Google Books API key, loan duration)
